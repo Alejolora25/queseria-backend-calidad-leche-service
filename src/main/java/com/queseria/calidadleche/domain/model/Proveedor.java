@@ -12,7 +12,7 @@ public final class Proveedor {
   private final OffsetDateTime creadoEn;
   private final OffsetDateTime actualizadoEn;
 
-  private Proveedor(Long id, String nombre, String identificacion, String tipoIdentificacion, boolean activo,
+  private Proveedor(Long id, String nombre, String tipoIdentificacion, String identificacion, boolean activo,
                     OffsetDateTime creadoEn, OffsetDateTime actualizadoEn) {
     this.id = id; // null => INSERT; la BD genera el id
     this.nombre = Objects.requireNonNull(nombre).trim();

@@ -12,6 +12,6 @@ public class CrearProveedorUseCase {
     var nuevo = Proveedor.crear(nombre, tipoIdentificacion, identificacion);
     return proveedorRepo.findByIdentificacion(identificacion)
       .flatMap(ex -> Mono.<Proveedor>error(new IllegalArgumentException("Identificación ya existe")))
-      .switchIfEmpty(proveedorRepo.save(nuevo));
+      .switchIfEmpty(Mono.defer(() -> proveedorRepo.save(nuevo)));
   }
 }

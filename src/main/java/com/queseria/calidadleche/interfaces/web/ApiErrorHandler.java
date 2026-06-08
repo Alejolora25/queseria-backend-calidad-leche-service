@@ -2,6 +2,7 @@ package com.queseria.calidadleche.interfaces.web;
 
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -87,8 +88,7 @@ public class ApiErrorHandler {
   }
 
   @ExceptionHandler(ResponseStatusException.class)
-  @ResponseStatus
-  public Map<String, Object> notFound(ResponseStatusException ex) {
+  public ResponseEntity<Map<String, Object>> notFound(ResponseStatusException ex) {
     // Por defecto
     Map<String, Object> body = new java.util.LinkedHashMap<>();
     body.put("error", ex.getStatusCode().toString());
@@ -98,6 +98,6 @@ public class ApiErrorHandler {
     if (ex.getStatusCode().value() == 404 && "Proveedor no existe".equals(ex.getReason())) {
       body.put("code", "PROVEEDOR_NOT_FOUND");
     }
-    return body;
+    return ResponseEntity.status(ex.getStatusCode()).body(body);
   }
 }

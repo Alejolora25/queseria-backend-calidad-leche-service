@@ -1,4 +1,4 @@
-package com.queseria.calidad_leche_service;
+package com.queseria.calidadleche;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
