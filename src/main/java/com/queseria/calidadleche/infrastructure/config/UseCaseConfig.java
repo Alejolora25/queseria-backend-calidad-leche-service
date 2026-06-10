@@ -1,10 +1,13 @@
 package com.queseria.calidadleche.infrastructure.config;
 
+import com.queseria.calidadleche.application.port.AnaliticaRepository;
 import com.queseria.calidadleche.application.usecase.BuscarProveedorUseCase;
 import com.queseria.calidadleche.application.usecase.CrearProveedorUseCase;
+import com.queseria.calidadleche.application.usecase.RegistrarMuestraConEvaluacionUseCase;
 import com.queseria.calidadleche.application.usecase.RegistrarMuestraUseCase;
 import com.queseria.calidadleche.domain.repo.MuestraRepository;
 import com.queseria.calidadleche.domain.repo.ProveedorRepository;
+import com.queseria.calidadleche.domain.service.EvaluacionCalidadService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,6 +18,13 @@ public class UseCaseConfig {
   }
   @Bean RegistrarMuestraUseCase registrarMuestraUseCase(MuestraRepository repo) {
     return new RegistrarMuestraUseCase(repo);
+  }
+  @Bean RegistrarMuestraConEvaluacionUseCase registrarMuestraConEvaluacionUseCase(
+      MuestraRepository muestraRepo,
+      EvaluacionCalidadService evaluacionService,
+      AnaliticaRepository analiticaRepository
+  ) {
+    return new RegistrarMuestraConEvaluacionUseCase(muestraRepo, evaluacionService, analiticaRepository);
   }
   @Bean BuscarProveedorUseCase buscarProveedorUseCase(ProveedorRepository repo) {
     return new BuscarProveedorUseCase(repo);
