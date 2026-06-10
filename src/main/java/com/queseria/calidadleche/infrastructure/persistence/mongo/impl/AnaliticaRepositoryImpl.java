@@ -1,29 +1,36 @@
-package com.queseria.calidadleche.domain.service;
+package com.queseria.calidadleche.infrastructure.persistence.mongo.impl;
 
+import com.queseria.calidadleche.application.port.AnaliticaRepository;
 import com.queseria.calidadleche.domain.model.MuestraLeche;
+import com.queseria.calidadleche.domain.service.EvaluacionCalidadService;
 import com.queseria.calidadleche.infrastructure.persistence.mongo.doc.AnaliticaMuestraDoc;
 import com.queseria.calidadleche.infrastructure.persistence.mongo.repo.AnaliticaMuestraMongoRepository;
 import com.queseria.calidadleche.infrastructure.util.HashUtil;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-@Service
+@Repository
 @RequiredArgsConstructor
-public class PersistirAnaliticaService {
+public class AnaliticaRepositoryImpl implements AnaliticaRepository {
 
   private final AnaliticaMuestraMongoRepository mongoRepo;
 
-  public Mono<Void> persistirAnalisis(
+  @Override
+  public Mono<Void> saveAnalisis(
       MuestraLeche muestra,
       EvaluacionCalidadService.EvaluacionMuestra evaluacion
   ) {
-    // 1) Construir bloque base con los valores tal como llegaron/derivados
     AnaliticaMuestraDoc.BaseValores base = AnaliticaMuestraDoc.BaseValores.builder()
         .grasa(muestra.composicion().grasa())
         .proteina(muestra.composicion().proteina())
@@ -36,26 +43,24 @@ public class PersistirAnaliticaService {
         .aguaPct(muestra.aguaPct())
         .build();
 
-    // 2) Mapear evaluación a documento
     Map<String, AnaliticaMuestraDoc.ResultadoParametroDoc> porParametro =
         evaluacion.porParametro().entrySet().stream()
             .collect(Collectors.toMap(
                 Map.Entry::getKey,
                 e -> AnaliticaMuestraDoc.ResultadoParametroDoc.builder()
-                        .estado(e.getValue().estado())
-                        .mensajes(e.getValue().mensajes())
-                        .build(),
-                (a,b)->a, LinkedHashMap::new
+                    .estado(e.getValue().estado())
+                    .mensajes(e.getValue().mensajes())
+                    .build(),
+                (a, b) -> a,
+                LinkedHashMap::new
             ));
 
     AnaliticaMuestraDoc.EvaluacionDoc evalDoc = AnaliticaMuestraDoc.EvaluacionDoc.builder()
         .porParametro(porParametro)
         .build();
 
-    // 3) Hash canónico de la base
     String hash = HashUtil.sha256CanonicalJson(base);
 
-    // 4) Flags y KPI (sencillo por ahora)
     Set<String> flags = porParametro.values().stream()
         .map(AnaliticaMuestraDoc.ResultadoParametroDoc::getEstado)
         .filter(Objects::nonNull)
@@ -64,7 +69,6 @@ public class PersistirAnaliticaService {
 
     BigDecimal kpi = calcularKpiSimple(porParametro);
 
-    // 5) Armar doc y guardar
     AnaliticaMuestraDoc doc = AnaliticaMuestraDoc.builder()
         .sampleId(muestra.id())
         .proveedorId(muestra.proveedorId())
@@ -79,7 +83,6 @@ public class PersistirAnaliticaService {
     return mongoRepo.save(doc).then();
   }
 
-  // KPI simple: 1.0 = todo ACEPTABLE; penaliza ALERTA y RECHAZAR.
   private BigDecimal calcularKpiSimple(Map<String, AnaliticaMuestraDoc.ResultadoParametroDoc> porParametro) {
     if (porParametro == null || porParametro.isEmpty()) return BigDecimal.ONE;
 

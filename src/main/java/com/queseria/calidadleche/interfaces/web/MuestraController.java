@@ -1,35 +1,42 @@
 package com.queseria.calidadleche.interfaces.web;
 
-import com.queseria.calidadleche.application.usecase.RegistrarMuestraUseCase;
-import com.queseria.calidadleche.domain.model.*;
-import com.queseria.calidadleche.domain.service.EvaluacionCalidadService;
-import com.queseria.calidadleche.domain.service.PersistirAnaliticaService;
+import com.queseria.calidadleche.application.usecase.RegistrarMuestraConEvaluacionUseCase;
+import com.queseria.calidadleche.domain.model.Composicion;
+import com.queseria.calidadleche.domain.model.FisicoQuimico;
+import com.queseria.calidadleche.domain.model.Higiene;
+import com.queseria.calidadleche.domain.model.MuestraLeche;
 import com.queseria.calidadleche.domain.repo.MuestraRepository;
+import com.queseria.calidadleche.domain.service.EvaluacionCalidadService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.Flux;
-
 import org.springframework.validation.annotation.Validated;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Max;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @Validated
 @RestController
 @RequestMapping("/api/v1/muestras")
 public class MuestraController {
 
-  // ======= DTOs =======
+  public record PageResp<T>(List<T> items, long total, int limit, int offset) {}
 
-  // ---- Page DTO para la respuesta paginada ----
-  public record PageResp<T>(java.util.List<T> items, long total, int limit, int offset) {}
-  // ---- Crear Muestra DTOs ----
   public record ComposicionReq(
       @NotNull BigDecimal grasa,
       @NotNull BigDecimal proteina,
@@ -38,8 +45,8 @@ public class MuestraController {
   ) {}
 
   public record FisicoQuimicoReq(
-      @NotNull BigDecimal densidad,       // g/mL
-      @NotNull BigDecimal acidezDornic,   // °D
+      @NotNull BigDecimal densidad,
+      @NotNull BigDecimal acidezDornic,
       @NotNull BigDecimal temperaturaC
   ) {}
 
@@ -54,12 +61,12 @@ public class MuestraController {
       @Valid @NotNull ComposicionReq composicion,
       @Valid @NotNull FisicoQuimicoReq fisicoQuimico,
       @Valid HigieneReq higiene,
-      BigDecimal sng,            // opcional (si no, se calcula como ST - grasa)
-      BigDecimal aguaPct         // opcional
+      BigDecimal sng,
+      BigDecimal aguaPct
   ) {}
 
-  public record ResultadoParametroResp(String estado, java.util.List<String> mensajes) {}
-  public record EvaluacionResp(java.util.Map<String, ResultadoParametroResp> porParametro) {}
+  public record ResultadoParametroResp(String estado, List<String> mensajes) {}
+  public record EvaluacionResp(Map<String, ResultadoParametroResp> porParametro) {}
   public record MuestraResp(
       Long id, Long proveedorId, OffsetDateTime fechaMuestra,
       BigDecimal volumenLitros, BigDecimal precioLitro, String observaciones,
@@ -69,105 +76,119 @@ public class MuestraController {
       EvaluacionResp evaluacion
   ) {}
 
-  private final RegistrarMuestraUseCase registrarUC;
-  private final EvaluacionCalidadService evalService;
-  private final PersistirAnaliticaService persistirAnaliticaService;
+  private final RegistrarMuestraConEvaluacionUseCase registrarConEvaluacionUC;
   private final MuestraRepository muestraRepository;
 
-  public MuestraController(RegistrarMuestraUseCase registrarUC, 
-                           EvaluacionCalidadService evalService,
-                           PersistirAnaliticaService persistirAnaliticaService,
-                           MuestraRepository muestraRepository) {
-    this.registrarUC = registrarUC;
-    this.evalService = evalService;
-    this.persistirAnaliticaService = persistirAnaliticaService;
+  public MuestraController(
+      RegistrarMuestraConEvaluacionUseCase registrarConEvaluacionUC,
+      MuestraRepository muestraRepository
+  ) {
+    this.registrarConEvaluacionUC = registrarConEvaluacionUC;
     this.muestraRepository = muestraRepository;
   }
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
   public Mono<MuestraResp> crear(@Valid @RequestBody CrearMuestraReq req) {
-    var comp = new Composicion(req.composicion().grasa(), req.composicion().proteina(),
-        req.composicion().lactosa(), req.composicion().solidosTotales());
-    var fq   = new FisicoQuimico(req.fisicoQuimico().densidad(),
-        req.fisicoQuimico().acidezDornic(), req.fisicoQuimico().temperaturaC());
-    var hig  = (req.higiene()==null) ? new Higiene(0,0) :
-        new Higiene(req.higiene().ufcBacterias()==null?0:req.higiene().ufcBacterias(),
-                    req.higiene().ccSomaticas()==null?0:req.higiene().ccSomaticas());
+    MuestraLeche muestra = toDomain(req);
 
-    var muestra = MuestraLeche.registrar(
-        req.proveedorId(), req.fechaMuestra(),
-        req.volumenLitros(), req.precioLitro(), req.observaciones(),
-        comp, fq, hig,
-        req.aguaPct(),   
-        req.sng(),       
-        null,            
-        null            
-    );
-
-    return registrarUC.ejecutar(muestra)
-    .flatMap(saved -> {
-      // 1) Evaluar al vuelo
-      var ev = evalService.evaluar(
-          comp.grasa(), comp.proteina(),
-          fq.densidad(), fq.temperaturaC(),
-          comp.solidosTotales(), req.sng(),
-          fq.acidezDornic(), req.aguaPct()
-      );
-
-      // 2) Persistir analítica en Mongo y luego construir la respuesta
-      return persistirAnaliticaService.persistirAnalisis(saved, ev)
-          .then(Mono.fromSupplier(() -> {
-            var porParamResp = new java.util.LinkedHashMap<String, ResultadoParametroResp>();
-            ev.porParametro().forEach((k,v) ->
-                porParamResp.put(k, new ResultadoParametroResp(v.estado(), v.mensajes()))
-            );
-            var evaluacionResp = new EvaluacionResp(porParamResp);
-
-            return new MuestraResp(
-                saved.id(), saved.proveedorId(), saved.fechaMuestra(),
-                saved.volumenLitros(), saved.precioLitro(), saved.observaciones(),
-                comp.grasa(), comp.proteina(), comp.lactosa(), comp.solidosTotales(),
-                fq.densidad(), fq.acidezDornic(), fq.temperaturaC(),
-                hig.ufcBacterias(), hig.ccSomaticas(),
-                evaluacionResp
-            );
-          }));
-    });
+    return registrarConEvaluacionUC.ejecutar(muestra)
+        .map(resultado -> toResp(resultado.muestra(), resultado.evaluacion()));
   }
 
-  // ======= NUEVO: GET histórico paginado =======
   @GetMapping
   public Mono<PageResp<MuestraResp>> historico(
       @RequestParam Long proveedorId,
       @RequestParam OffsetDateTime desde,
       @RequestParam OffsetDateTime hasta,
       @RequestParam(defaultValue = "50") @Min(1) @Max(200) int limit,
-      @RequestParam(defaultValue = "0")  @Min(0) int offset
+      @RequestParam(defaultValue = "0") @Min(0) int offset
   ) {
-
-    // ✅ sanity check de rango de fechas
     if (desde.isAfter(hasta)) {
-        throw new ResponseStatusException(
-            HttpStatus.BAD_REQUEST,
-            "'desde' no puede ser posterior a 'hasta'"
-        );
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "'desde' no puede ser posterior a 'hasta'"
+      );
     }
 
     Mono<Long> totalMono = muestraRepository.countByProveedorAndRango(proveedorId, desde, hasta);
 
     Flux<MuestraResp> items = muestraRepository
         .findByProveedorAndRangoPaged(proveedorId, desde, hasta, limit, offset)
-        .map(m -> new MuestraResp(
-            m.id(), m.proveedorId(), m.fechaMuestra(),
-            m.volumenLitros(), m.precioLitro(), m.observaciones(),
-            m.composicion().grasa(), m.composicion().proteina(), m.composicion().lactosa(), m.composicion().solidosTotales(),
-            m.fisicoQuimico().densidad(), m.fisicoQuimico().acidezDornic(), m.fisicoQuimico().temperaturaC(),
-            m.higiene().ufcBacterias(), m.higiene().ccSomaticas(),
-            null // evaluacion no aplica en el histórico de Postgres
-        ));
+        .map(m -> toResp(m, null));
 
     return items.collectList()
         .zipWith(totalMono, (list, total) -> new PageResp<>(list, total, limit, offset));
+  }
+
+  private MuestraLeche toDomain(CrearMuestraReq req) {
+    var comp = new Composicion(
+        req.composicion().grasa(),
+        req.composicion().proteina(),
+        req.composicion().lactosa(),
+        req.composicion().solidosTotales()
+    );
+
+    var fq = new FisicoQuimico(
+        req.fisicoQuimico().densidad(),
+        req.fisicoQuimico().acidezDornic(),
+        req.fisicoQuimico().temperaturaC()
+    );
+
+    var hig = req.higiene() == null
+        ? new Higiene(0, 0)
+        : new Higiene(
+            req.higiene().ufcBacterias() == null ? 0 : req.higiene().ufcBacterias(),
+            req.higiene().ccSomaticas() == null ? 0 : req.higiene().ccSomaticas()
+        );
+
+    return MuestraLeche.registrar(
+        req.proveedorId(),
+        req.fechaMuestra(),
+        req.volumenLitros(),
+        req.precioLitro(),
+        req.observaciones(),
+        comp,
+        fq,
+        hig,
+        req.aguaPct(),
+        req.sng(),
+        null,
+        null
+    );
+  }
+
+  private MuestraResp toResp(
+      MuestraLeche muestra,
+      EvaluacionCalidadService.EvaluacionMuestra evaluacion
+  ) {
+    EvaluacionResp evaluacionResp = null;
+
+    if (evaluacion != null) {
+      var porParamResp = new LinkedHashMap<String, ResultadoParametroResp>();
+      evaluacion.porParametro().forEach((k, v) ->
+          porParamResp.put(k, new ResultadoParametroResp(v.estado(), v.mensajes()))
+      );
+      evaluacionResp = new EvaluacionResp(porParamResp);
+    }
+
+    return new MuestraResp(
+        muestra.id(),
+        muestra.proveedorId(),
+        muestra.fechaMuestra(),
+        muestra.volumenLitros(),
+        muestra.precioLitro(),
+        muestra.observaciones(),
+        muestra.composicion().grasa(),
+        muestra.composicion().proteina(),
+        muestra.composicion().lactosa(),
+        muestra.composicion().solidosTotales(),
+        muestra.fisicoQuimico().densidad(),
+        muestra.fisicoQuimico().acidezDornic(),
+        muestra.fisicoQuimico().temperaturaC(),
+        muestra.higiene().ufcBacterias(),
+        muestra.higiene().ccSomaticas(),
+        evaluacionResp
+    );
   }
 }
