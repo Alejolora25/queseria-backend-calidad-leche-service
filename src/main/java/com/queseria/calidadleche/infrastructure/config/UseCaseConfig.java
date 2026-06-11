@@ -1,8 +1,11 @@
 package com.queseria.calidadleche.infrastructure.config;
 
 import com.queseria.calidadleche.application.port.AnaliticaRepository;
+import com.queseria.calidadleche.application.port.AnaliticaConsultaRepository;
+import com.queseria.calidadleche.application.usecase.BuscarAnaliticaPorMuestraUseCase;
 import com.queseria.calidadleche.application.usecase.BuscarProveedorUseCase;
 import com.queseria.calidadleche.application.usecase.CrearProveedorUseCase;
+import com.queseria.calidadleche.application.usecase.ObtenerResumenAnaliticaProveedorUseCase;
 import com.queseria.calidadleche.application.usecase.RegistrarMuestraConEvaluacionUseCase;
 import com.queseria.calidadleche.application.usecase.RegistrarMuestraUseCase;
 import com.queseria.calidadleche.domain.repo.MuestraRepository;
@@ -25,6 +28,16 @@ public class UseCaseConfig {
       AnaliticaRepository analiticaRepository
   ) {
     return new RegistrarMuestraConEvaluacionUseCase(muestraRepo, evaluacionService, analiticaRepository);
+  }
+  @Bean BuscarAnaliticaPorMuestraUseCase buscarAnaliticaPorMuestraUseCase(
+      AnaliticaConsultaRepository analiticaConsultaRepository
+  ) {
+    return new BuscarAnaliticaPorMuestraUseCase(analiticaConsultaRepository);
+  }
+  @Bean ObtenerResumenAnaliticaProveedorUseCase obtenerResumenAnaliticaProveedorUseCase(
+      AnaliticaConsultaRepository analiticaConsultaRepository
+  ) {
+    return new ObtenerResumenAnaliticaProveedorUseCase(analiticaConsultaRepository);
   }
   @Bean BuscarProveedorUseCase buscarProveedorUseCase(ProveedorRepository repo) {
     return new BuscarProveedorUseCase(repo);
