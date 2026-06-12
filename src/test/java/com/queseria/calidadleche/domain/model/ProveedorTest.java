@@ -54,4 +54,38 @@ class ProveedorTest {
     assertThat(desactivado.creadoEn()).isEqualTo(creadoEn);
     assertThat(desactivado.actualizadoEn()).isAfter(creadoEn);
   }
+
+  @Test
+  void activarDebeRetornarProveedorActivoSinCambiarIdentidad() {
+    OffsetDateTime creadoEn = OffsetDateTime.parse("2026-01-10T08:00:00-05:00");
+    Proveedor proveedor = Proveedor.reconstruir(
+        3L, "Proveedor Sur", "CC", "444", false, creadoEn, creadoEn);
+
+    Proveedor activado = proveedor.activar();
+
+    assertThat(activado.id()).isEqualTo(3L);
+    assertThat(activado.nombre()).isEqualTo("Proveedor Sur");
+    assertThat(activado.tipoIdentificacion()).isEqualTo("CC");
+    assertThat(activado.identificacion()).isEqualTo("444");
+    assertThat(activado.activo()).isTrue();
+    assertThat(activado.creadoEn()).isEqualTo(creadoEn);
+    assertThat(activado.actualizadoEn()).isAfter(creadoEn);
+  }
+
+  @Test
+  void actualizarDatosDebeMantenerEstadoYFechasDeCreacion() {
+    OffsetDateTime creadoEn = OffsetDateTime.parse("2026-01-10T08:00:00-05:00");
+    Proveedor proveedor = Proveedor.reconstruir(
+        5L, "Nombre Viejo", "CC", "123", false, creadoEn, creadoEn);
+
+    Proveedor actualizado = proveedor.actualizarDatos("Nombre Nuevo", "NIT", "900");
+
+    assertThat(actualizado.id()).isEqualTo(5L);
+    assertThat(actualizado.nombre()).isEqualTo("Nombre Nuevo");
+    assertThat(actualizado.tipoIdentificacion()).isEqualTo("NIT");
+    assertThat(actualizado.identificacion()).isEqualTo("900");
+    assertThat(actualizado.activo()).isFalse();
+    assertThat(actualizado.creadoEn()).isEqualTo(creadoEn);
+    assertThat(actualizado.actualizadoEn()).isAfter(creadoEn);
+  }
 }

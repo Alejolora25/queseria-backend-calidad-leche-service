@@ -10,7 +10,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
+import com.queseria.calidadleche.application.usecase.ActualizarProveedorUseCase;
 import com.queseria.calidadleche.application.usecase.BuscarProveedorUseCase;
+import com.queseria.calidadleche.application.usecase.CambiarEstadoProveedorUseCase;
 import com.queseria.calidadleche.application.usecase.CrearProveedorUseCase;
 import com.queseria.calidadleche.domain.model.Proveedor;
 
@@ -28,6 +30,12 @@ class ProveedorControllerTest {
 
   @MockitoBean
   private BuscarProveedorUseCase buscarProveedorUseCase;
+
+  @MockitoBean
+  private ActualizarProveedorUseCase actualizarProveedorUseCase;
+
+  @MockitoBean
+  private CambiarEstadoProveedorUseCase cambiarEstadoProveedorUseCase;
 
   @Test
   void crearDebeResponderCreatedConProveedor() {
@@ -77,6 +85,157 @@ class ProveedorControllerTest {
         .jsonPath("$.fields.nombre").exists()
         .jsonPath("$.fields.tipoIdentificacion").exists()
         .jsonPath("$.fields.identificacion").exists();
+  }
+
+  @Test
+  void actualizarDebeResponderOkSinCambiarActivo() {
+    Proveedor proveedor = Proveedor.reconstruir(
+        7L, "Finca Actualizada", "NIT", "900123456", false, null, null);
+    when(actualizarProveedorUseCase.ejecutar(7L, "Finca Actualizada", "NIT", "900123456"))
+        .thenReturn(Mono.just(proveedor));
+
+    webTestClient.put()
+        .uri("/api/v1/proveedores/7")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue("""
+            {
+              "nombre": "Finca Actualizada",
+              "tipoIdentificacion": "NIT",
+              "identificacion": "900123456"
+            }
+            """)
+        .exchange()
+        .expectStatus().isOk()
+        .expectBody()
+        .jsonPath("$.id").isEqualTo(7)
+        .jsonPath("$.nombre").isEqualTo("Finca Actualizada")
+        .jsonPath("$.tipoIdentificacion").isEqualTo("NIT")
+        .jsonPath("$.identificacion").isEqualTo("900123456")
+        .jsonPath("$.activo").isEqualTo(false);
+
+    verify(actualizarProveedorUseCase).ejecutar(7L, "Finca Actualizada", "NIT", "900123456");
+  }
+
+  @Test
+  void actualizarDebeResponderBadRequestCuandoFaltanCampos() {
+    webTestClient.put()
+        .uri("/api/v1/proveedores/7")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue("""
+            {
+              "nombre": "",
+              "tipoIdentificacion": "",
+              "identificacion": ""
+            }
+            """)
+        .exchange()
+        .expectStatus().isBadRequest()
+        .expectBody()
+        .jsonPath("$.error").isEqualTo("bad_request")
+        .jsonPath("$.fields.nombre").exists()
+        .jsonPath("$.fields.tipoIdentificacion").exists()
+        .jsonPath("$.fields.identificacion").exists();
+  }
+
+  @Test
+  void actualizarDebeResponderNotFoundCuandoNoExiste() {
+    when(actualizarProveedorUseCase.ejecutar(99L, "No Existe", "CC", "999"))
+        .thenReturn(Mono.empty());
+
+    webTestClient.put()
+        .uri("/api/v1/proveedores/99")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue("""
+            {
+              "nombre": "No Existe",
+              "tipoIdentificacion": "CC",
+              "identificacion": "999"
+            }
+            """)
+        .exchange()
+        .expectStatus().isNotFound()
+        .expectBody()
+        .jsonPath("$.code").isEqualTo("PROVEEDOR_NOT_FOUND");
+  }
+
+  @Test
+  void actualizarDebeResponderConflictCuandoIdentificacionYaExiste() {
+    when(actualizarProveedorUseCase.ejecutar(7L, "Finca", "NIT", "900"))
+        .thenReturn(Mono.error(new IllegalArgumentException("Identificacion ya existe")));
+
+    webTestClient.put()
+        .uri("/api/v1/proveedores/7")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue("""
+            {
+              "nombre": "Finca",
+              "tipoIdentificacion": "NIT",
+              "identificacion": "900"
+            }
+            """)
+        .exchange()
+        .expectStatus().isEqualTo(409)
+        .expectBody()
+        .jsonPath("$.error").isEqualTo("conflict")
+        .jsonPath("$.message").isEqualTo("Identificacion ya existe");
+  }
+
+  @Test
+  void activarDebeResponderOkConProveedorActivo() {
+    Proveedor proveedor = Proveedor.reconstruir(
+        7L, "Proveedor Norte", "CC", "123456", true, null, null);
+    when(cambiarEstadoProveedorUseCase.activar(7L)).thenReturn(Mono.just(proveedor));
+
+    webTestClient.patch()
+        .uri("/api/v1/proveedores/7/activar")
+        .exchange()
+        .expectStatus().isOk()
+        .expectBody()
+        .jsonPath("$.id").isEqualTo(7)
+        .jsonPath("$.activo").isEqualTo(true);
+
+    verify(cambiarEstadoProveedorUseCase).activar(7L);
+  }
+
+  @Test
+  void desactivarDebeResponderOkConProveedorInactivo() {
+    Proveedor proveedor = Proveedor.reconstruir(
+        7L, "Proveedor Norte", "CC", "123456", false, null, null);
+    when(cambiarEstadoProveedorUseCase.desactivar(7L)).thenReturn(Mono.just(proveedor));
+
+    webTestClient.patch()
+        .uri("/api/v1/proveedores/7/desactivar")
+        .exchange()
+        .expectStatus().isOk()
+        .expectBody()
+        .jsonPath("$.id").isEqualTo(7)
+        .jsonPath("$.activo").isEqualTo(false);
+
+    verify(cambiarEstadoProveedorUseCase).desactivar(7L);
+  }
+
+  @Test
+  void activarDebeResponderNotFoundCuandoNoExiste() {
+    when(cambiarEstadoProveedorUseCase.activar(99L)).thenReturn(Mono.empty());
+
+    webTestClient.patch()
+        .uri("/api/v1/proveedores/99/activar")
+        .exchange()
+        .expectStatus().isNotFound()
+        .expectBody()
+        .jsonPath("$.code").isEqualTo("PROVEEDOR_NOT_FOUND");
+  }
+
+  @Test
+  void desactivarDebeResponderNotFoundCuandoNoExiste() {
+    when(cambiarEstadoProveedorUseCase.desactivar(99L)).thenReturn(Mono.empty());
+
+    webTestClient.patch()
+        .uri("/api/v1/proveedores/99/desactivar")
+        .exchange()
+        .expectStatus().isNotFound()
+        .expectBody()
+        .jsonPath("$.code").isEqualTo("PROVEEDOR_NOT_FOUND");
   }
 
   @Test

@@ -1,5 +1,7 @@
 package com.queseria.calidadleche.interfaces.web;
 
+import com.queseria.calidadleche.application.usecase.ActualizarProveedorUseCase;
+import com.queseria.calidadleche.application.usecase.CambiarEstadoProveedorUseCase;
 import com.queseria.calidadleche.application.usecase.CrearProveedorUseCase;
 import com.queseria.calidadleche.application.usecase.BuscarProveedorUseCase;
 import jakarta.validation.Valid;
@@ -19,15 +21,25 @@ import org.springframework.web.server.ResponseStatusException;
 public class ProveedorController {
 
   public record CrearProveedorReq(@NotBlank String nombre, @NotBlank String tipoIdentificacion, @NotBlank String identificacion) {}
+  public record ActualizarProveedorReq(@NotBlank String nombre, @NotBlank String tipoIdentificacion, @NotBlank String identificacion) {}
   public record ProveedorResp(Long id, String nombre, String tipoIdentificacion, String identificacion, Boolean activo) {}
   public record PageResp<T>(java.util.List<T> items, long total, int limit, int offset) {}
 
   private final CrearProveedorUseCase crearUC;
   private final BuscarProveedorUseCase buscarUC;
+  private final ActualizarProveedorUseCase actualizarUC;
+  private final CambiarEstadoProveedorUseCase cambiarEstadoUC;
 
-  public ProveedorController(CrearProveedorUseCase crearUC, BuscarProveedorUseCase buscarUC) {
+  public ProveedorController(
+      CrearProveedorUseCase crearUC,
+      BuscarProveedorUseCase buscarUC,
+      ActualizarProveedorUseCase actualizarUC,
+      CambiarEstadoProveedorUseCase cambiarEstadoUC
+  ) {
     this.crearUC = crearUC;
     this.buscarUC = buscarUC;
+    this.actualizarUC = actualizarUC;
+    this.cambiarEstadoUC = cambiarEstadoUC;
   }
 
   @PostMapping
@@ -35,6 +47,30 @@ public class ProveedorController {
   public Mono<ProveedorResp> crear(@Valid @RequestBody CrearProveedorReq req) {
     return crearUC.ejecutar(req.nombre(), req.tipoIdentificacion(), req.identificacion())
       .map(p -> new ProveedorResp(p.id(), p.nombre(), p.tipoIdentificacion(), p.identificacion(), p.activo()));
+  }
+
+  @PutMapping("/{id}")
+  public Mono<ProveedorResp> actualizar(
+      @PathVariable Long id,
+      @Valid @RequestBody ActualizarProveedorReq req
+  ) {
+    return actualizarUC.ejecutar(id, req.nombre(), req.tipoIdentificacion(), req.identificacion())
+        .map(p -> new ProveedorResp(p.id(), p.nombre(), p.tipoIdentificacion(), p.identificacion(), p.activo()))
+        .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Proveedor no existe")));
+  }
+
+  @PatchMapping("/{id}/activar")
+  public Mono<ProveedorResp> activar(@PathVariable Long id) {
+    return cambiarEstadoUC.activar(id)
+        .map(p -> new ProveedorResp(p.id(), p.nombre(), p.tipoIdentificacion(), p.identificacion(), p.activo()))
+        .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Proveedor no existe")));
+  }
+
+  @PatchMapping("/{id}/desactivar")
+  public Mono<ProveedorResp> desactivar(@PathVariable Long id) {
+    return cambiarEstadoUC.desactivar(id)
+        .map(p -> new ProveedorResp(p.id(), p.nombre(), p.tipoIdentificacion(), p.identificacion(), p.activo()))
+        .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Proveedor no existe")));
   }
 
   @GetMapping("/{id}")

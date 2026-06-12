@@ -99,6 +99,7 @@ spring.profiles.active=prod
 Variables esperadas:
 
 ```text
+SPRING_PROFILES_ACTIVE=prod
 SPRING_R2DBC_URL
 SPRING_R2DBC_USERNAME
 SPRING_R2DBC_PASSWORD
@@ -108,6 +109,22 @@ SPRING_FLYWAY_PASSWORD
 MONGO_URI
 PORT
 ```
+
+Formatos esperados:
+
+```text
+SPRING_R2DBC_URL=r2dbc:postgresql://host:port/database
+SPRING_FLYWAY_URL=jdbc:postgresql://host:port/database
+MONGO_URI=mongodb+srv://usuario:password@cluster.mongodb.net/database
+```
+
+En Render, el Health Check debe apuntar a:
+
+```text
+/actuator/health
+```
+
+Por defecto solo se expone `health` de Actuator. En desarrollo se expone Actuator completo desde `application-dev.properties`.
 
 ## Endpoints
 
@@ -130,6 +147,33 @@ Buscar por ID:
 
 ```http
 GET /api/v1/proveedores/{id}
+```
+
+Actualizar proveedor:
+
+```http
+PUT /api/v1/proveedores/{id}
+Content-Type: application/json
+
+{
+  "nombre": "Proveedor Actualizado",
+  "tipoIdentificacion": "NIT",
+  "identificacion": "900123456"
+}
+```
+
+Este endpoint actualiza los datos del proveedor, pero no cambia su estado `activo`.
+
+Activar proveedor:
+
+```http
+PATCH /api/v1/proveedores/{id}/activar
+```
+
+Desactivar proveedor:
+
+```http
+PATCH /api/v1/proveedores/{id}/desactivar
 ```
 
 Buscar por identificacion:

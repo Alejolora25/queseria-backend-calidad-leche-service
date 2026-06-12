@@ -32,6 +32,14 @@ public final class Proveedor {
     return new Proveedor(id, nombre, tipoIdentificacion, identificacion, activo, creadoEn, actualizadoEn);
   }
 
+  public Proveedor actualizarDatos(String nombre, String tipoIdentificacion, String identificacion) {
+    return new Proveedor(id, nombre, tipoIdentificacion, identificacion, activo, creadoEn, OffsetDateTime.now());
+  }
+
+  public Proveedor activar() {
+    return new Proveedor(id, nombre, tipoIdentificacion, identificacion, true, creadoEn, OffsetDateTime.now());
+  }
+
   public Proveedor desactivar() {
     return new Proveedor(id, nombre, tipoIdentificacion, identificacion, false, creadoEn, OffsetDateTime.now());
   }

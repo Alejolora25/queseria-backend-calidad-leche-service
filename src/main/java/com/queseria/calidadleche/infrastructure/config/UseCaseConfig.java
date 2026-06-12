@@ -2,8 +2,10 @@ package com.queseria.calidadleche.infrastructure.config;
 
 import com.queseria.calidadleche.application.port.AnaliticaRepository;
 import com.queseria.calidadleche.application.port.AnaliticaConsultaRepository;
+import com.queseria.calidadleche.application.usecase.ActualizarProveedorUseCase;
 import com.queseria.calidadleche.application.usecase.BuscarAnaliticaPorMuestraUseCase;
 import com.queseria.calidadleche.application.usecase.BuscarProveedorUseCase;
+import com.queseria.calidadleche.application.usecase.CambiarEstadoProveedorUseCase;
 import com.queseria.calidadleche.application.usecase.CrearProveedorUseCase;
 import com.queseria.calidadleche.application.usecase.ObtenerResumenAnaliticaProveedorUseCase;
 import com.queseria.calidadleche.application.usecase.RegistrarMuestraConEvaluacionUseCase;
@@ -18,6 +20,12 @@ import org.springframework.context.annotation.Configuration;
 public class UseCaseConfig {
   @Bean CrearProveedorUseCase crearProveedorUseCase(ProveedorRepository repo) {
     return new CrearProveedorUseCase(repo);
+  }
+  @Bean ActualizarProveedorUseCase actualizarProveedorUseCase(ProveedorRepository repo) {
+    return new ActualizarProveedorUseCase(repo);
+  }
+  @Bean CambiarEstadoProveedorUseCase cambiarEstadoProveedorUseCase(ProveedorRepository repo) {
+    return new CambiarEstadoProveedorUseCase(repo);
   }
   @Bean RegistrarMuestraUseCase registrarMuestraUseCase(MuestraRepository repo) {
     return new RegistrarMuestraUseCase(repo);
