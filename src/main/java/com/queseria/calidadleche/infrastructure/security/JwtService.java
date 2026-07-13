@@ -12,12 +12,13 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.stereotype.Service;
 
+import com.queseria.calidadleche.application.port.AccessTokenProvider;
 import com.queseria.calidadleche.domain.model.NombreRol;
 import com.queseria.calidadleche.domain.model.Usuario;
 import com.queseria.calidadleche.infrastructure.config.JwtProperties;
 
 @Service
-public class JwtService {
+public class JwtService implements AccessTokenProvider {
   private final JwtEncoder jwtEncoder;
   private final JwtProperties properties;
 
@@ -52,5 +53,11 @@ public class JwtService {
 
     JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
     return jwtEncoder.encode(JwtEncoderParameters.from(header, claims.build())).getTokenValue();
+  }
+
+  @Override
+  public GeneratedAccessToken generate(Usuario usuario) {
+    long expiresInSeconds = Math.multiplyExact(properties.expirationMinutes(), 60L);
+    return new GeneratedAccessToken(generateToken(usuario), expiresInSeconds);
   }
 }

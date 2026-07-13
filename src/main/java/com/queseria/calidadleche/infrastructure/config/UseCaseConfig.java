@@ -2,6 +2,8 @@ package com.queseria.calidadleche.infrastructure.config;
 
 import com.queseria.calidadleche.application.port.AnaliticaRepository;
 import com.queseria.calidadleche.application.port.AnaliticaConsultaRepository;
+import com.queseria.calidadleche.application.port.AccessTokenProvider;
+import com.queseria.calidadleche.application.port.PasswordVerifier;
 import com.queseria.calidadleche.application.usecase.ActualizarProveedorUseCase;
 import com.queseria.calidadleche.application.usecase.BuscarAnaliticaPorMuestraUseCase;
 import com.queseria.calidadleche.application.usecase.BuscarProveedorUseCase;
@@ -10,14 +12,23 @@ import com.queseria.calidadleche.application.usecase.CrearProveedorUseCase;
 import com.queseria.calidadleche.application.usecase.ObtenerResumenAnaliticaProveedorUseCase;
 import com.queseria.calidadleche.application.usecase.RegistrarMuestraConEvaluacionUseCase;
 import com.queseria.calidadleche.application.usecase.RegistrarMuestraUseCase;
+import com.queseria.calidadleche.application.usecase.LoginUseCase;
 import com.queseria.calidadleche.domain.repo.MuestraRepository;
 import com.queseria.calidadleche.domain.repo.ProveedorRepository;
+import com.queseria.calidadleche.domain.repo.UsuarioRepository;
 import com.queseria.calidadleche.domain.service.EvaluacionCalidadService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class UseCaseConfig {
+  @Bean LoginUseCase loginUseCase(
+      UsuarioRepository usuarioRepository,
+      PasswordVerifier passwordVerifier,
+      AccessTokenProvider accessTokenProvider
+  ) {
+    return new LoginUseCase(usuarioRepository, passwordVerifier, accessTokenProvider);
+  }
   @Bean CrearProveedorUseCase crearProveedorUseCase(ProveedorRepository repo) {
     return new CrearProveedorUseCase(repo);
   }

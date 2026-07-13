@@ -19,6 +19,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import com.queseria.calidadleche.application.port.AccessTokenProvider;
 import com.queseria.calidadleche.domain.model.NombreRol;
 import com.queseria.calidadleche.domain.model.Usuario;
 import com.queseria.calidadleche.infrastructure.config.JwtProperties;
@@ -65,6 +66,16 @@ class JwtServiceTest {
     Jwt jwt = jwtDecoder.decode(jwtService.generateToken(usuario));
 
     assertThat(jwt.hasClaim("queseriaId")).isFalse();
+  }
+
+  @Test
+  void debeInformarExpiracionDelTokenEnSegundos() {
+    AccessTokenProvider.GeneratedAccessToken token = jwtService.generate(
+        usuario(10L, null, Set.of(NombreRol.LECTOR))
+    );
+
+    assertThat(token.value()).isNotBlank();
+    assertThat(token.expiresInSeconds()).isEqualTo(1800);
   }
 
   private Usuario usuario(Long id, Long queseriaId, Set<NombreRol> roles) {

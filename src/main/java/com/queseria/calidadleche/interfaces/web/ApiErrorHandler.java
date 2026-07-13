@@ -1,5 +1,7 @@
 package com.queseria.calidadleche.interfaces.web;
 
+import com.queseria.calidadleche.application.exception.CredencialesInvalidasException;
+
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,15 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class ApiErrorHandler {
+
+  @ExceptionHandler(CredencialesInvalidasException.class)
+  @ResponseStatus(HttpStatus.UNAUTHORIZED)
+  public Map<String, Object> unauthorized(CredencialesInvalidasException ex) {
+    return Map.of(
+        "error", "unauthorized",
+        "message", CredencialesInvalidasException.MESSAGE
+    );
+  }
 
   // 400 - Body @Valid (WebFlux)
   @ExceptionHandler(WebExchangeBindException.class)
