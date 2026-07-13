@@ -3,14 +3,30 @@ package com.queseria.calidadleche.infrastructure.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.List;
+
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
+import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.queseria.calidadleche.application.usecase.BuscarAnaliticaPorMuestraUseCase;
 import com.queseria.calidadleche.application.usecase.ObtenerResumenAnaliticaProveedorUseCase;
 import com.queseria.calidadleche.interfaces.web.AnaliticaController;
@@ -27,12 +43,17 @@ import reactor.core.publisher.Mono;
 )
 @Import(SecurityConfig.class)
 class SecurityConfigTest {
+  private static final String ISSUER = "queseria-test";
+  private static final String OTHER_SECRET = "other-test-jwt-secret-with-at-least-32-characters";
 
   @Autowired
   private WebTestClient webTestClient;
 
   @Autowired
   private PasswordEncoder passwordEncoder;
+
+  @Autowired
+  private JwtEncoder jwtEncoder;
 
   @MockitoBean
   private BuscarAnaliticaPorMuestraUseCase buscarAnaliticaPorMuestraUseCase;
@@ -56,5 +77,91 @@ class SecurityConfigTest {
 
     assertThat(passwordEncoder.matches("Admin123*", hash)).isTrue();
     assertThat(passwordEncoder.matches("incorrecta", hash)).isFalse();
+  }
+
+  @Test
+  void tokenValidoDebePermitirLaSolicitud() {
+    when(buscarAnaliticaPorMuestraUseCase.execute(1L)).thenReturn(Mono.empty());
+
+    webTestClient.get()
+        .uri("/api/v1/analiticas/muestra/1")
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + validToken(jwtEncoder, ISSUER))
+        .exchange()
+        .expectStatus().isOk();
+  }
+
+  @Test
+  void tokenExpiradoDebeResponderUnauthorized() {
+    Instant now = Instant.now();
+    String token = token(jwtEncoder, ISSUER, now.minusSeconds(600), now.minusSeconds(300), null);
+
+    expectUnauthorized(token);
+  }
+
+  @Test
+  void tokenConFirmaIncorrectaDebeResponderUnauthorized() {
+    SecretKey otherKey = new SecretKeySpec(
+        OTHER_SECRET.getBytes(StandardCharsets.UTF_8),
+        "HmacSHA256"
+    );
+    JwtEncoder otherEncoder = new NimbusJwtEncoder(new ImmutableSecret<>(otherKey));
+
+    expectUnauthorized(validToken(otherEncoder, ISSUER));
+  }
+
+  @Test
+  void tokenConIssuerIncorrectoDebeResponderUnauthorized() {
+    expectUnauthorized(validToken(jwtEncoder, "otro-issuer"));
+  }
+
+  @Test
+  void tokenConNotBeforeFuturoDebeResponderUnauthorized() {
+    Instant now = Instant.now();
+    String token = token(jwtEncoder, ISSUER, now, now.plusSeconds(600), now.plusSeconds(300));
+
+    expectUnauthorized(token);
+  }
+
+  @Test
+  void tokenMalformadoDebeResponderUnauthorizedConJsonYHeaderBearer() {
+    expectUnauthorized("token-malformado");
+  }
+
+  private String validToken(JwtEncoder encoder, String issuer) {
+    Instant now = Instant.now();
+    return token(encoder, issuer, now, now.plusSeconds(300), null);
+  }
+
+  private String token(
+      JwtEncoder encoder,
+      String issuer,
+      Instant issuedAt,
+      Instant expiresAt,
+      Instant notBefore
+  ) {
+    JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
+        .issuer(issuer)
+        .subject("1")
+        .issuedAt(issuedAt)
+        .expiresAt(expiresAt)
+        .claim("roles", List.of("ADMIN", "LECTOR"));
+    if (notBefore != null) {
+      claims.notBefore(notBefore);
+    }
+    JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
+    return encoder.encode(JwtEncoderParameters.from(header, claims.build())).getTokenValue();
+  }
+
+  private void expectUnauthorized(String token) {
+    webTestClient.get()
+        .uri("/api/v1/analiticas/muestra/1")
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+        .exchange()
+        .expectStatus().isUnauthorized()
+        .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+        .expectHeader().valueEquals(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+        .expectBody()
+        .jsonPath("$.error").isEqualTo("unauthorized")
+        .jsonPath("$.message").isEqualTo("Token inválido o expirado");
   }
 }
