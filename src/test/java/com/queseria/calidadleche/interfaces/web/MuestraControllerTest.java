@@ -9,10 +9,12 @@ import com.queseria.calidadleche.application.usecase.RegistrarMuestraConEvaluaci
 import com.queseria.calidadleche.domain.model.MuestraLeche;
 import com.queseria.calidadleche.domain.repo.MuestraRepository;
 import com.queseria.calidadleche.domain.service.EvaluacionCalidadService;
+import com.queseria.calidadleche.infrastructure.config.SecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
@@ -22,6 +24,7 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 @WebFluxTest(controllers = MuestraController.class)
+@Import(SecurityConfig.class)
 class MuestraControllerTest {
 
   @Autowired

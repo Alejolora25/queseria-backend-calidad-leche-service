@@ -107,8 +107,14 @@ SPRING_FLYWAY_URL
 SPRING_FLYWAY_USER
 SPRING_FLYWAY_PASSWORD
 MONGO_URI
+JWT_SECRET
+JWT_ISSUER
+JWT_EXPIRATION_MINUTES
 PORT
 ```
+
+`JWT_SECRET` es obligatorio con el perfil `prod` y debe tener al menos 32 caracteres.
+`JWT_ISSUER` y `JWT_EXPIRATION_MINUTES` usan por defecto `calidad-leche-service` y `60`, respectivamente.
 
 Formatos esperados:
 

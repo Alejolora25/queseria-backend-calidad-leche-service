@@ -6,7 +6,7 @@ import com.queseria.calidadleche.domain.repo.UsuarioRepository;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.env.Environment;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -17,11 +17,16 @@ import java.util.Arrays;
 public class AdminUserInitializer implements ApplicationRunner {
   private final UsuarioRepository usuarioRepository;
   private final Environment environment;
-  private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+  private final PasswordEncoder passwordEncoder;
 
-  public AdminUserInitializer(UsuarioRepository usuarioRepository, Environment environment) {
+  public AdminUserInitializer(
+      UsuarioRepository usuarioRepository,
+      Environment environment,
+      PasswordEncoder passwordEncoder
+  ) {
     this.usuarioRepository = usuarioRepository;
     this.environment = environment;
+    this.passwordEncoder = passwordEncoder;
   }
 
   @Override
