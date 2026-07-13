@@ -61,7 +61,7 @@ public class MuestraController {
       @Valid @NotNull ComposicionReq composicion,
       @Valid @NotNull FisicoQuimicoReq fisicoQuimico,
       @Valid HigieneReq higiene,
-      BigDecimal sng,
+      @NotNull BigDecimal sng,
       BigDecimal aguaPct
   ) {}
 
@@ -122,11 +122,13 @@ public class MuestraController {
   }
 
   private MuestraLeche toDomain(CrearMuestraReq req) {
+    BigDecimal solidosTotalesCalculados = req.composicion().grasa().add(req.sng());
+
     var comp = new Composicion(
         req.composicion().grasa(),
         req.composicion().proteina(),
         req.composicion().lactosa(),
-        req.composicion().solidosTotales()
+        solidosTotalesCalculados
     );
 
     var fq = new FisicoQuimico(

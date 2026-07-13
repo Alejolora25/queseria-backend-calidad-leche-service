@@ -55,10 +55,7 @@ public class EvaluacionCalidadService {
         ? acidezDornic.multiply(bd("0.1")).setScale(2, RoundingMode.HALF_UP)
         : null;
 
-    // SNG calculado si viene nulo: SNG = ST - grasa
-    BigDecimal sng = (sngOpcional != null) ? sngOpcional
-                                           : (solidosTotales != null && grasa != null
-                                              ? solidosTotales.subtract(grasa).max(CERO) : null);
+    BigDecimal sng = sngOpcional;
 
     // 1) Grasa
     r.put("grasa", evaluarRango(grasa, G_MIN_OK, G_MAX_OK, G_MIN_WARN, null,
@@ -163,7 +160,7 @@ public class EvaluacionCalidadService {
   }
 
   private ResultadoParametro evaluarSNG(BigDecimal sng) {
-    if (sng == null) return new ResultadoParametro("SIN_DATO", List.of("Sin SNG (se puede calcular como ST - grasa)"));
+    if (sng == null) return new ResultadoParametro("SIN_DATO", List.of("Sin SNG"));
     if (between(sng, SNG_MIN_OK, SNG_MAX_OK)) return new ResultadoParametro("ACEPTABLE", List.of());
     if (sng.compareTo(SNG_MIN_WARN) >= 0 && sng.compareTo(SNG_MIN_OK) < 0) {
       return new ResultadoParametro("ALERTA", List.of(

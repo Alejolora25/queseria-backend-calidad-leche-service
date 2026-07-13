@@ -15,7 +15,7 @@ class EvaluacionCalidadServiceTest {
     var evaluacion = service.evaluar(
         bd("4.0"), bd("3.2"),
         bd("1.032"), bd("18"),
-        bd("13.0"), null,
+        bd("13.0"), bd("9.0"),
         bd("15"), bd("0"));
 
     assertEstado(evaluacion, "grasa", "ACEPTABLE");
@@ -28,14 +28,14 @@ class EvaluacionCalidadServiceTest {
   }
 
   @Test
-  void evaluarDebeCalcularSngCuandoNoVieneInformado() {
+  void evaluarDebeMarcarSngSinDatoCuandoNoVieneInformado() {
     var evaluacion = service.evaluar(
         bd("4.0"), bd("3.2"),
         bd("1.032"), bd("18"),
         bd("13.0"), null,
         bd("15"), bd("0"));
 
-    assertEstado(evaluacion, "sng", "ACEPTABLE");
+    assertEstado(evaluacion, "sng", "SIN_DATO");
   }
 
   @Test
