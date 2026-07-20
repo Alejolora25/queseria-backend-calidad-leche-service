@@ -11,6 +11,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,7 +42,7 @@ public class MuestraController {
   public record ComposicionReq(
       @NotNull BigDecimal grasa,
       @NotNull BigDecimal proteina,
-      BigDecimal lactosa,
+      @PositiveOrZero BigDecimal lactosa,
       @NotNull BigDecimal solidosTotales
   ) {}
 
@@ -50,19 +52,26 @@ public class MuestraController {
       @NotNull BigDecimal temperaturaC
   ) {}
 
-  public record HigieneReq(Integer ufcBacterias, Integer ccSomaticas) {}
+  public record HigieneReq(
+      @PositiveOrZero Integer ufcBacterias,
+      @PositiveOrZero Integer ccSomaticas
+  ) {}
 
   public record CrearMuestraReq(
       @NotNull Long proveedorId,
       @NotNull OffsetDateTime fechaMuestra,
+      @NotNull(message = "El volumen es obligatorio")
+      @Positive(message = "El volumen debe ser mayor que cero")
       BigDecimal volumenLitros,
+      @NotNull(message = "El precio por litro es obligatorio")
+      @Positive(message = "El precio por litro debe ser mayor que cero")
       BigDecimal precioLitro,
       String observaciones,
       @Valid @NotNull ComposicionReq composicion,
       @Valid @NotNull FisicoQuimicoReq fisicoQuimico,
       @Valid HigieneReq higiene,
       @NotNull BigDecimal sng,
-      BigDecimal aguaPct
+      @PositiveOrZero BigDecimal aguaPct
   ) {}
 
   public record ResultadoParametroResp(String estado, List<String> mensajes) {}
@@ -127,7 +136,7 @@ public class MuestraController {
     var comp = new Composicion(
         req.composicion().grasa(),
         req.composicion().proteina(),
-        req.composicion().lactosa(),
+        req.composicion().lactosa() == null ? BigDecimal.ZERO : req.composicion().lactosa(),
         solidosTotalesCalculados
     );
 
@@ -153,7 +162,7 @@ public class MuestraController {
         comp,
         fq,
         hig,
-        req.aguaPct(),
+        req.aguaPct() == null ? BigDecimal.ZERO : req.aguaPct(),
         req.sng(),
         null,
         null

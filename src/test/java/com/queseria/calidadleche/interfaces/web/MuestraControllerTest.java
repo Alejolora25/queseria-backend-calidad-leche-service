@@ -41,27 +41,7 @@ class MuestraControllerTest {
 
   @Test
   void crearDebeCalcularSolidosTotalesDesdeGrasaYSng() {
-    when(registrarMuestraConEvaluacionUseCase.ejecutar(any(MuestraLeche.class)))
-        .thenAnswer(invocation -> {
-          MuestraLeche muestra = invocation.getArgument(0);
-          MuestraLeche guardada = MuestraLeche.reconstruir(
-              30L,
-              muestra.proveedorId(),
-              muestra.fechaMuestra(),
-              muestra.volumenLitros(),
-              muestra.precioLitro(),
-              muestra.observaciones(),
-              muestra.composicion(),
-              muestra.fisicoQuimico(),
-              muestra.higiene(),
-              muestra.aguaPct(),
-              muestra.sng(),
-              muestra.equipo(),
-              muestra.condicion()
-          );
-          var evaluacion = new EvaluacionCalidadService.EvaluacionMuestra(Map.of());
-          return Mono.just(new RegistrarMuestraConEvaluacionUseCase.Resultado(guardada, evaluacion));
-        });
+    configurarRegistroExitoso();
 
     webTestClient.post()
         .uri("/api/v1/muestras")
@@ -133,5 +113,130 @@ class MuestraControllerTest {
         .expectBody()
         .jsonPath("$.error").isEqualTo("bad_request")
         .jsonPath("$.fields.sng").exists();
+  }
+
+  @Test
+  void crearDebeResponderBadRequestCuandoVolumenYPrecioNoVienenInformados() {
+    webTestClient.post()
+        .uri("/api/v1/muestras")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue("""
+            {
+              "proveedorId": 4,
+              "fechaMuestra": "2026-01-10T08:00:00-05:00",
+              "composicion": {
+                "grasa": 4.0,
+                "proteina": 3.2,
+                "solidosTotales": 12.8
+              },
+              "fisicoQuimico": {
+                "densidad": 1.032,
+                "acidezDornic": 15,
+                "temperaturaC": 18
+              },
+              "sng": 8.8
+            }
+            """)
+        .exchange()
+        .expectStatus().isBadRequest()
+        .expectBody()
+        .jsonPath("$.error").isEqualTo("bad_request")
+        .jsonPath("$.fields.volumenLitros").exists()
+        .jsonPath("$.fields.precioLitro").exists();
+  }
+
+  @Test
+  void crearDebeResponderBadRequestCuandoVolumenYPrecioSonCero() {
+    webTestClient.post()
+        .uri("/api/v1/muestras")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue("""
+            {
+              "proveedorId": 4,
+              "fechaMuestra": "2026-01-10T08:00:00-05:00",
+              "volumenLitros": 0,
+              "precioLitro": 0,
+              "composicion": {
+                "grasa": 4.0,
+                "proteina": 3.2,
+                "solidosTotales": 12.8
+              },
+              "fisicoQuimico": {
+                "densidad": 1.032,
+                "acidezDornic": 15,
+                "temperaturaC": 18
+              },
+              "sng": 8.8
+            }
+            """)
+        .exchange()
+        .expectStatus().isBadRequest()
+        .expectBody()
+        .jsonPath("$.error").isEqualTo("bad_request")
+        .jsonPath("$.fields.volumenLitros").exists()
+        .jsonPath("$.fields.precioLitro").exists();
+  }
+
+  @Test
+  void crearDebeNormalizarOpcionalesNumericosEnCero() {
+    configurarRegistroExitoso();
+
+    webTestClient.post()
+        .uri("/api/v1/muestras")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue("""
+            {
+              "proveedorId": 4,
+              "fechaMuestra": "2026-01-10T08:00:00-05:00",
+              "volumenLitros": 120.5,
+              "precioLitro": 1800,
+              "composicion": {
+                "grasa": 4.0,
+                "proteina": 3.2,
+                "solidosTotales": 12.8
+              },
+              "fisicoQuimico": {
+                "densidad": 1.032,
+                "acidezDornic": 15,
+                "temperaturaC": 18
+              },
+              "sng": 8.8
+            }
+            """)
+        .exchange()
+        .expectStatus().isCreated();
+
+    ArgumentCaptor<MuestraLeche> muestraCaptor = ArgumentCaptor.forClass(MuestraLeche.class);
+    verify(registrarMuestraConEvaluacionUseCase).ejecutar(muestraCaptor.capture());
+
+    MuestraLeche muestra = muestraCaptor.getValue();
+    assertThat(muestra.composicion().lactosa()).isEqualByComparingTo(BigDecimal.ZERO);
+    assertThat(muestra.higiene().ufcBacterias()).isZero();
+    assertThat(muestra.higiene().ccSomaticas()).isZero();
+    assertThat(muestra.aguaPct()).isEqualByComparingTo(BigDecimal.ZERO);
+  }
+
+  private void configurarRegistroExitoso() {
+    when(registrarMuestraConEvaluacionUseCase.ejecutar(any(MuestraLeche.class)))
+        .thenAnswer(invocation -> {
+          MuestraLeche muestra = invocation.getArgument(0);
+          MuestraLeche guardada = MuestraLeche.reconstruir(
+              30L,
+              muestra.proveedorId(),
+              muestra.fechaMuestra(),
+              muestra.volumenLitros(),
+              muestra.precioLitro(),
+              muestra.observaciones(),
+              muestra.composicion(),
+              muestra.fisicoQuimico(),
+              muestra.higiene(),
+              muestra.aguaPct(),
+              muestra.sng(),
+              muestra.equipo(),
+              muestra.condicion()
+          );
+          var evaluacion = new EvaluacionCalidadService.EvaluacionMuestra(Map.of());
+          return Mono.just(new RegistrarMuestraConEvaluacionUseCase.Resultado(guardada, evaluacion));
+        });
   }
 }
