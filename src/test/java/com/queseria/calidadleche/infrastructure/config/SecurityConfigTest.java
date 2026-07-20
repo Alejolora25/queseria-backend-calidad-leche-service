@@ -11,6 +11,8 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.context.annotation.Import;
@@ -41,7 +43,7 @@ import reactor.core.publisher.Mono;
         "app.security.jwt.expiration-minutes=60"
     }
 )
-@Import(SecurityConfig.class)
+@Import({ SecurityConfig.class, WebFluxCorsConfig.class })
 class SecurityConfigTest {
   private static final String ISSUER = "queseria-test";
   private static final String OTHER_SECRET = "other-test-jwt-secret-with-at-least-32-characters";
@@ -61,14 +63,22 @@ class SecurityConfigTest {
   @MockitoBean
   private ObtenerResumenAnaliticaProveedorUseCase obtenerResumenAnaliticaProveedorUseCase;
 
-  @Test
-  void debePermitirEndpointsSinAutenticacionTemporalmente() {
-    when(buscarAnaliticaPorMuestraUseCase.execute(1L)).thenReturn(Mono.empty());
-
+  @ParameterizedTest
+  @ValueSource(strings = {
+      "/api/v1/proveedores",
+      "/api/v1/muestras",
+      "/api/v1/analiticas/muestra/1"
+  })
+  void endpointsDeNegocioSinTokenDebenResponderUnauthorized(String uri) {
     webTestClient.get()
-        .uri("/api/v1/analiticas/muestra/1")
+        .uri(uri)
         .exchange()
-        .expectStatus().isOk();
+        .expectStatus().isUnauthorized()
+        .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+        .expectHeader().valueEquals(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+        .expectBody()
+        .jsonPath("$.error").isEqualTo("unauthorized")
+        .jsonPath("$.message").isEqualTo("Token inválido o expirado");
   }
 
   @Test
@@ -91,9 +101,32 @@ class SecurityConfigTest {
   }
 
   @Test
+  void tokenValidoSinRolesDebeResponderForbidden() {
+    Instant now = Instant.now();
+    String token = token(jwtEncoder, ISSUER, now, now.plusSeconds(300), null, List.of());
+
+    webTestClient.get()
+        .uri("/api/v1/analiticas/muestra/1")
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+        .exchange()
+        .expectStatus().isForbidden()
+        .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+        .expectBody()
+        .jsonPath("$.error").isEqualTo("forbidden")
+        .jsonPath("$.message").isEqualTo("No tienes permisos para realizar esta acción");
+  }
+
+  @Test
   void tokenExpiradoDebeResponderUnauthorized() {
     Instant now = Instant.now();
-    String token = token(jwtEncoder, ISSUER, now.minusSeconds(600), now.minusSeconds(300), null);
+    String token = token(
+        jwtEncoder,
+        ISSUER,
+        now.minusSeconds(600),
+        now.minusSeconds(300),
+        null,
+        List.of("ADMIN", "LECTOR")
+    );
 
     expectUnauthorized(token);
   }
@@ -117,7 +150,14 @@ class SecurityConfigTest {
   @Test
   void tokenConNotBeforeFuturoDebeResponderUnauthorized() {
     Instant now = Instant.now();
-    String token = token(jwtEncoder, ISSUER, now, now.plusSeconds(600), now.plusSeconds(300));
+    String token = token(
+        jwtEncoder,
+        ISSUER,
+        now,
+        now.plusSeconds(600),
+        now.plusSeconds(300),
+        List.of("ADMIN", "LECTOR")
+    );
 
     expectUnauthorized(token);
   }
@@ -129,7 +169,7 @@ class SecurityConfigTest {
 
   private String validToken(JwtEncoder encoder, String issuer) {
     Instant now = Instant.now();
-    return token(encoder, issuer, now, now.plusSeconds(300), null);
+    return token(encoder, issuer, now, now.plusSeconds(300), null, List.of("ADMIN", "LECTOR"));
   }
 
   private String token(
@@ -137,14 +177,15 @@ class SecurityConfigTest {
       String issuer,
       Instant issuedAt,
       Instant expiresAt,
-      Instant notBefore
+      Instant notBefore,
+      List<String> roles
   ) {
     JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
         .issuer(issuer)
         .subject("1")
         .issuedAt(issuedAt)
         .expiresAt(expiresAt)
-        .claim("roles", List.of("ADMIN", "LECTOR"));
+        .claim("roles", roles);
     if (notBefore != null) {
       claims.notBefore(notBefore);
     }

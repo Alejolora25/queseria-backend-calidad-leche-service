@@ -10,6 +10,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverter;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -21,8 +22,10 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import com.queseria.calidadleche.infrastructure.security.JsonAccessDeniedHandler;
 import com.queseria.calidadleche.infrastructure.security.JsonBearerAuthenticationEntryPoint;
 import com.queseria.calidadleche.infrastructure.security.JwtRolesConverter;
 
@@ -34,14 +37,43 @@ public class SecurityConfig {
   SecurityWebFilterChain securityWebFilterChain(
       ServerHttpSecurity http,
       ReactiveJwtAuthenticationConverter jwtAuthenticationConverter,
-      JsonBearerAuthenticationEntryPoint authenticationEntryPoint
+      JsonBearerAuthenticationEntryPoint authenticationEntryPoint,
+      JsonAccessDeniedHandler accessDeniedHandler,
+      CorsConfigurationSource corsConfigurationSource
   ) {
     return http
+        .cors(cors -> cors.configurationSource(corsConfigurationSource))
         .csrf(ServerHttpSecurity.CsrfSpec::disable)
         .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
         .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
         .logout(ServerHttpSecurity.LogoutSpec::disable)
-        .authorizeExchange(exchanges -> exchanges.anyExchange().permitAll())
+        .exceptionHandling(exceptions -> exceptions
+            .authenticationEntryPoint(authenticationEntryPoint)
+            .accessDeniedHandler(accessDeniedHandler))
+        .authorizeExchange(exchanges -> exchanges
+            .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+            .pathMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
+            .pathMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+            .pathMatchers("/api/v1/usuarios/**").hasRole("ADMIN")
+            .pathMatchers(HttpMethod.GET,
+                "/api/v1/proveedores/**",
+                "/api/v1/muestras/**",
+                "/api/v1/analiticas/**"
+            ).hasAnyRole("ADMIN", "OPERADOR", "LECTOR")
+            .pathMatchers(HttpMethod.POST,
+                "/api/v1/proveedores/**",
+                "/api/v1/muestras/**"
+            ).hasAnyRole("ADMIN", "OPERADOR")
+            .pathMatchers(HttpMethod.PUT, "/api/v1/proveedores/**")
+            .hasAnyRole("ADMIN", "OPERADOR")
+            .pathMatchers(HttpMethod.PATCH, "/api/v1/proveedores/**")
+            .hasAnyRole("ADMIN", "OPERADOR")
+            .pathMatchers(
+                "/api/v1/proveedores/**",
+                "/api/v1/muestras/**",
+                "/api/v1/analiticas/**"
+            ).denyAll()
+            .anyExchange().denyAll())
         .oauth2ResourceServer(oauth2 -> oauth2
             .authenticationEntryPoint(authenticationEntryPoint)
             .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
@@ -93,5 +125,10 @@ public class SecurityConfig {
   @Bean
   JsonBearerAuthenticationEntryPoint authenticationEntryPoint() {
     return new JsonBearerAuthenticationEntryPoint();
+  }
+
+  @Bean
+  JsonAccessDeniedHandler accessDeniedHandler() {
+    return new JsonAccessDeniedHandler();
   }
 }

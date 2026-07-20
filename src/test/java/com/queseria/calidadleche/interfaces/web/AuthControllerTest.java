@@ -18,11 +18,12 @@ import com.queseria.calidadleche.application.model.LoginResult;
 import com.queseria.calidadleche.application.usecase.LoginUseCase;
 import com.queseria.calidadleche.domain.model.NombreRol;
 import com.queseria.calidadleche.infrastructure.config.SecurityConfig;
+import com.queseria.calidadleche.infrastructure.config.WebFluxCorsConfig;
 
 import reactor.core.publisher.Mono;
 
 @WebFluxTest(controllers = AuthController.class)
-@Import(SecurityConfig.class)
+@Import({ SecurityConfig.class, WebFluxCorsConfig.class })
 class AuthControllerTest {
 
   @Autowired

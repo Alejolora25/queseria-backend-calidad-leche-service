@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
@@ -17,12 +18,14 @@ import com.queseria.calidadleche.application.usecase.CambiarEstadoProveedorUseCa
 import com.queseria.calidadleche.application.usecase.CrearProveedorUseCase;
 import com.queseria.calidadleche.domain.model.Proveedor;
 import com.queseria.calidadleche.infrastructure.config.SecurityConfig;
+import com.queseria.calidadleche.infrastructure.config.WebFluxCorsConfig;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @WebFluxTest(controllers = ProveedorController.class)
-@Import(SecurityConfig.class)
+@Import({ SecurityConfig.class, WebFluxCorsConfig.class })
+@WithMockUser(roles = "ADMIN")
 class ProveedorControllerTest {
 
   @Autowired

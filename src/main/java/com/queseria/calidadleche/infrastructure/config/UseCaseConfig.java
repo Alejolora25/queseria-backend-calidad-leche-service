@@ -4,6 +4,7 @@ import com.queseria.calidadleche.application.port.AnaliticaRepository;
 import com.queseria.calidadleche.application.port.AnaliticaConsultaRepository;
 import com.queseria.calidadleche.application.port.AccessTokenProvider;
 import com.queseria.calidadleche.application.port.PasswordVerifier;
+import com.queseria.calidadleche.application.port.PasswordHasher;
 import com.queseria.calidadleche.application.usecase.ActualizarProveedorUseCase;
 import com.queseria.calidadleche.application.usecase.BuscarAnaliticaPorMuestraUseCase;
 import com.queseria.calidadleche.application.usecase.BuscarProveedorUseCase;
@@ -13,6 +14,10 @@ import com.queseria.calidadleche.application.usecase.ObtenerResumenAnaliticaProv
 import com.queseria.calidadleche.application.usecase.RegistrarMuestraConEvaluacionUseCase;
 import com.queseria.calidadleche.application.usecase.RegistrarMuestraUseCase;
 import com.queseria.calidadleche.application.usecase.LoginUseCase;
+import com.queseria.calidadleche.application.usecase.CambiarEstadoUsuarioUseCase;
+import com.queseria.calidadleche.application.usecase.CambiarRolesUsuarioUseCase;
+import com.queseria.calidadleche.application.usecase.CrearUsuarioUseCase;
+import com.queseria.calidadleche.application.usecase.ListarUsuariosUseCase;
 import com.queseria.calidadleche.domain.repo.MuestraRepository;
 import com.queseria.calidadleche.domain.repo.ProveedorRepository;
 import com.queseria.calidadleche.domain.repo.UsuarioRepository;
@@ -22,6 +27,21 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class UseCaseConfig {
+  @Bean CrearUsuarioUseCase crearUsuarioUseCase(
+      UsuarioRepository usuarioRepository,
+      PasswordHasher passwordHasher
+  ) {
+    return new CrearUsuarioUseCase(usuarioRepository, passwordHasher);
+  }
+  @Bean ListarUsuariosUseCase listarUsuariosUseCase(UsuarioRepository usuarioRepository) {
+    return new ListarUsuariosUseCase(usuarioRepository);
+  }
+  @Bean CambiarEstadoUsuarioUseCase cambiarEstadoUsuarioUseCase(UsuarioRepository usuarioRepository) {
+    return new CambiarEstadoUsuarioUseCase(usuarioRepository);
+  }
+  @Bean CambiarRolesUsuarioUseCase cambiarRolesUsuarioUseCase(UsuarioRepository usuarioRepository) {
+    return new CambiarRolesUsuarioUseCase(usuarioRepository);
+  }
   @Bean LoginUseCase loginUseCase(
       UsuarioRepository usuarioRepository,
       PasswordVerifier passwordVerifier,

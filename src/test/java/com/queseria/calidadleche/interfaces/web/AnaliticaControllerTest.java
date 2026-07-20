@@ -7,10 +7,12 @@ import com.queseria.calidadleche.application.model.AnaliticaMuestraConsulta;
 import com.queseria.calidadleche.application.usecase.BuscarAnaliticaPorMuestraUseCase;
 import com.queseria.calidadleche.application.usecase.ObtenerResumenAnaliticaProveedorUseCase;
 import com.queseria.calidadleche.infrastructure.config.SecurityConfig;
+import com.queseria.calidadleche.infrastructure.config.WebFluxCorsConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
@@ -21,7 +23,8 @@ import java.util.List;
 import java.util.Map;
 
 @WebFluxTest(controllers = AnaliticaController.class)
-@Import(SecurityConfig.class)
+@Import({ SecurityConfig.class, WebFluxCorsConfig.class })
+@WithMockUser(roles = "ADMIN")
 class AnaliticaControllerTest {
 
   @Autowired

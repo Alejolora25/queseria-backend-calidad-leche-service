@@ -1,6 +1,9 @@
 package com.queseria.calidadleche.interfaces.web;
 
 import com.queseria.calidadleche.application.exception.CredencialesInvalidasException;
+import com.queseria.calidadleche.application.exception.EmailUsuarioYaRegistradoException;
+import com.queseria.calidadleche.application.exception.OperacionUsuarioNoPermitidaException;
+import com.queseria.calidadleche.application.exception.UsuarioNoEncontradoException;
 
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
@@ -27,6 +30,21 @@ public class ApiErrorHandler {
         "error", "unauthorized",
         "message", CredencialesInvalidasException.MESSAGE
     );
+  }
+
+  @ExceptionHandler(UsuarioNoEncontradoException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public Map<String, Object> usuarioNoEncontrado(UsuarioNoEncontradoException ex) {
+    return Map.of("error", "not_found", "message", ex.getMessage());
+  }
+
+  @ExceptionHandler({
+      EmailUsuarioYaRegistradoException.class,
+      OperacionUsuarioNoPermitidaException.class
+  })
+  @ResponseStatus(HttpStatus.CONFLICT)
+  public Map<String, Object> conflictoUsuario(RuntimeException ex) {
+    return Map.of("error", "conflict", "message", ex.getMessage());
   }
 
   // 400 - Body @Valid (WebFlux)

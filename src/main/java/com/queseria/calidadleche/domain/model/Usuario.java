@@ -58,7 +58,11 @@ public final class Usuario {
   }
 
   public Usuario conRoles(Set<NombreRol> roles) {
-    return new Usuario(id, nombre, email, passwordHash, activo, queseriaId, roles, creadoEn, actualizadoEn);
+    return new Usuario(id, nombre, email, passwordHash, activo, queseriaId, roles, creadoEn, OffsetDateTime.now());
+  }
+
+  public Usuario conEstado(boolean activo) {
+    return new Usuario(id, nombre, email, passwordHash, activo, queseriaId, roles, creadoEn, OffsetDateTime.now());
   }
 
   public Long id() { return id; }
