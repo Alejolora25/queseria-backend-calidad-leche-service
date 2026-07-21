@@ -26,4 +26,16 @@ public interface MuestraR2dbcRepository extends ReactiveCrudRepository<MuestraLe
       AND fecha_muestra BETWEEN :desde AND :hasta
   """)
   Mono<Long> countByProveedorAndRango(Long proveedorId, OffsetDateTime desde, OffsetDateTime hasta);
+
+  @Query("""
+    SELECT id, fecha_muestra FROM muestras_leche
+    WHERE proveedor_id = :proveedorId
+      AND fecha_muestra BETWEEN :desde AND :hasta
+    ORDER BY fecha_muestra
+  """)
+  Flux<MuestraLecheRow> findReferenciasByProveedorAndRango(
+      Long proveedorId,
+      OffsetDateTime desde,
+      OffsetDateTime hasta
+  );
 }

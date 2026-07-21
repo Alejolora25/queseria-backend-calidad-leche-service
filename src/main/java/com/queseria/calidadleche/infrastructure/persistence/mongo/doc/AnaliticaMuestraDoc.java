@@ -35,6 +35,9 @@ public class AnaliticaMuestraDoc {
   @Indexed // si haces rangos por fecha sin el compuesto
   private Instant timestamp;
 
+  private Instant calculadaEn;
+  private String estadoGeneral;
+
   // ---- Bloque base tal como se midió/registró ----
   private BaseValores base;
 

@@ -70,7 +70,7 @@ class RegistrarMuestraConEvaluacionUseCaseTest {
   }
 
   @Test
-  void ejecutarDebePropagarErrorCuandoNoSePuedePersistirAnalitica() {
+  void ejecutarDebeResponderExitoCuandoMongoFallaDespuesDeGuardarLaMuestra() {
     MuestraLeche nueva = muestraNueva();
     MuestraLeche guardada = muestraGuardada(nueva);
 
@@ -85,10 +85,11 @@ class RegistrarMuestraConEvaluacionUseCaseTest {
     );
 
     StepVerifier.create(useCase.ejecutar(nueva))
-        .expectErrorMatches(error ->
-            error instanceof IllegalStateException
-                && error.getMessage().equals("mongo no disponible"))
-        .verify();
+        .assertNext(resultado -> {
+          assertThat(resultado.muestra()).isEqualTo(guardada);
+          assertThat(resultado.evaluacion().porParametro()).isNotEmpty();
+        })
+        .verifyComplete();
 
     verify(muestraRepo).save(nueva);
     verify(analiticaRepository).saveAnalisis(any(MuestraLeche.class), any());

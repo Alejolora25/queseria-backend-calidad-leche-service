@@ -37,4 +37,14 @@ public class MuestraRepositoryImpl implements MuestraRepository {
   public Mono<Long> countByProveedorAndRango(Long proveedorId, OffsetDateTime desde, OffsetDateTime hasta) {
     return repo.countByProveedorAndRango(proveedorId, desde, hasta);
   }
+
+  @Override
+  public Flux<ReferenciaMuestra> findReferenciasByProveedorAndRango(
+      Long proveedorId,
+      OffsetDateTime desde,
+      OffsetDateTime hasta
+  ) {
+    return repo.findReferenciasByProveedorAndRango(proveedorId, desde, hasta)
+        .map(row -> new ReferenciaMuestra(row.getId(), row.getFechaMuestra()));
+  }
 }

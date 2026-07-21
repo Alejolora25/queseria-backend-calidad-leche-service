@@ -6,6 +6,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
+import java.util.Collection;
 
 public interface AnaliticaMuestraMongoRepository
     extends ReactiveMongoRepository<AnaliticaMuestraDoc, String> {
@@ -17,4 +18,6 @@ public interface AnaliticaMuestraMongoRepository
   );
 
   Flux<AnaliticaMuestraDoc> findBySampleId(Long sampleId);
+
+  Flux<AnaliticaMuestraDoc> findBySampleIdIn(Collection<Long> sampleIds);
 }

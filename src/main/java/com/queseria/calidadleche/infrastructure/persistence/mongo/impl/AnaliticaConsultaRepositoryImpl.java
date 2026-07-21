@@ -10,14 +10,14 @@ import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
 import org.springframework.data.mongodb.core.aggregation.GroupOperation;
 import org.springframework.data.mongodb.core.aggregation.MatchOperation;
-import org.springframework.data.mongodb.core.aggregation.ObjectOperators;
 import org.springframework.data.mongodb.core.aggregation.ProjectionOperation;
-import org.springframework.data.mongodb.core.aggregation.UnwindOperation;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.stereotype.Repository;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -48,6 +48,17 @@ public class AnaliticaConsultaRepositoryImpl implements AnaliticaConsultaReposit
   }
 
   @Override
+  public Flux<MetadataAnalitica> buscarMetadatosPorMuestras(Collection<Long> sampleIds) {
+    if (sampleIds == null || sampleIds.isEmpty()) return Flux.empty();
+    return repo.findBySampleIdIn(sampleIds)
+        .map(doc -> new MetadataAnalitica(
+            doc.getSampleId(),
+            doc.getTimestamp(),
+            doc.getEstadoGeneral()
+        ));
+  }
+
+  @Override
   public Mono<Map<String, Object>> obtenerResumenProveedor(Long proveedorId, Instant desde, Instant hasta) {
     MatchOperation match = Aggregation.match(
         Criteria.where("proveedorId").is(proveedorId)
@@ -60,12 +71,7 @@ public class AnaliticaConsultaRepositoryImpl implements AnaliticaConsultaReposit
         .and("base.solidosTotales").as("solidosTotales")
         .and("base.sng").as("sng")
         .and("kpiCalidad").as("kpi")
-        .and(ObjectOperators.valueOf("evaluacion.porParametro").toArray()).as("params");
-
-    UnwindOperation unwind = Aggregation.unwind("params", true);
-
-    ProjectionOperation states = Aggregation.project("grasa", "proteina", "solidosTotales", "sng", "kpi")
-        .and("params.v.estado").as("estado");
+        .and("estadoGeneral").as("estadoGeneral");
 
     GroupOperation group = Aggregation.group()
         .avg("grasa").as("avgGrasa")
@@ -74,17 +80,17 @@ public class AnaliticaConsultaRepositoryImpl implements AnaliticaConsultaReposit
         .avg("sng").as("avgSNG")
         .avg("kpi").as("avgKPI")
         .sum(ConditionalOperators.when(
-            Criteria.where("estado").is("ACEPTABLE")
+            Criteria.where("estadoGeneral").is("ACEPTABLE")
         ).then(1).otherwise(0)).as("cntAceptable")
         .sum(ConditionalOperators.when(
-            Criteria.where("estado").is("ALERTA")
+            Criteria.where("estadoGeneral").is("ALERTA")
         ).then(1).otherwise(0)).as("cntAlerta")
         .sum(ConditionalOperators.when(
-            Criteria.where("estado").is("RECHAZAR")
+            Criteria.where("estadoGeneral").is("RECHAZAR")
         ).then(1).otherwise(0)).as("cntRechazar")
         .count().as("totalFilas");
 
-    Aggregation agg = Aggregation.newAggregation(match, project, unwind, states, group);
+    Aggregation agg = Aggregation.newAggregation(match, project, group);
 
     return mongo.aggregate(agg, "analiticas_muestra", ResumenAgg.class)
         .singleOrEmpty()
@@ -97,21 +103,23 @@ public class AnaliticaConsultaRepositoryImpl implements AnaliticaConsultaReposit
     long alerta = r.cntAlerta() == null ? 0L : r.cntAlerta();
     long rechazar = r.cntRechazar() == null ? 0L : r.cntRechazar();
 
-    return Map.of(
-        "promedios", Map.of(
-            "grasa", r.avgGrasa(),
-            "proteina", r.avgProteina(),
-            "solidosTotales", r.avgST(),
-            "sng", r.avgSNG(),
-            "kpi", r.avgKPI()
-        ),
-        "distribucionEstados", Map.of(
-            "ACEPTABLE", aceptable,
-            "ALERTA", alerta,
-            "RECHAZAR", rechazar,
-            "totalEstados", total
-        )
-    );
+    Map<String, Object> promedios = new LinkedHashMap<>();
+    promedios.put("grasa", r.avgGrasa());
+    promedios.put("proteina", r.avgProteina());
+    promedios.put("solidosTotales", r.avgST());
+    promedios.put("sng", r.avgSNG());
+    promedios.put("kpi", r.avgKPI());
+
+    Map<String, Object> distribucion = new LinkedHashMap<>();
+    distribucion.put("ACEPTABLE", aceptable);
+    distribucion.put("ALERTA", alerta);
+    distribucion.put("RECHAZAR", rechazar);
+    distribucion.put("totalEstados", total);
+
+    Map<String, Object> resumen = new LinkedHashMap<>();
+    resumen.put("promedios", promedios);
+    resumen.put("distribucionEstados", distribucion);
+    return resumen;
   }
 
   private AnaliticaMuestraConsulta toConsulta(AnaliticaMuestraDoc doc) {

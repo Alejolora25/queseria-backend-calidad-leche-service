@@ -69,14 +69,30 @@ public class UseCaseConfig {
     return new RegistrarMuestraConEvaluacionUseCase(muestraRepo, evaluacionService, analiticaRepository);
   }
   @Bean BuscarAnaliticaPorMuestraUseCase buscarAnaliticaPorMuestraUseCase(
-      AnaliticaConsultaRepository analiticaConsultaRepository
+      AnaliticaConsultaRepository analiticaConsultaRepository,
+      AnaliticaRepository analiticaRepository,
+      MuestraRepository muestraRepository,
+      EvaluacionCalidadService evaluacionService
   ) {
-    return new BuscarAnaliticaPorMuestraUseCase(analiticaConsultaRepository);
+    return new BuscarAnaliticaPorMuestraUseCase(
+        analiticaConsultaRepository,
+        analiticaRepository,
+        muestraRepository,
+        evaluacionService
+    );
   }
   @Bean ObtenerResumenAnaliticaProveedorUseCase obtenerResumenAnaliticaProveedorUseCase(
-      AnaliticaConsultaRepository analiticaConsultaRepository
+      AnaliticaConsultaRepository analiticaConsultaRepository,
+      AnaliticaRepository analiticaRepository,
+      MuestraRepository muestraRepository,
+      EvaluacionCalidadService evaluacionService
   ) {
-    return new ObtenerResumenAnaliticaProveedorUseCase(analiticaConsultaRepository);
+    return new ObtenerResumenAnaliticaProveedorUseCase(
+        analiticaConsultaRepository,
+        analiticaRepository,
+        muestraRepository,
+        evaluacionService
+    );
   }
   @Bean BuscarProveedorUseCase buscarProveedorUseCase(ProveedorRepository repo) {
     return new BuscarProveedorUseCase(repo);

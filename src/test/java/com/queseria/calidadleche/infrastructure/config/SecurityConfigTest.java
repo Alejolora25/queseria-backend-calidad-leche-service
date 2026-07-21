@@ -90,14 +90,14 @@ class SecurityConfigTest {
   }
 
   @Test
-  void tokenValidoDebePermitirLaSolicitud() {
+  void tokenValidoDebePasarSeguridadYLlegarAlControlador() {
     when(buscarAnaliticaPorMuestraUseCase.execute(1L)).thenReturn(Mono.empty());
 
     webTestClient.get()
         .uri("/api/v1/analiticas/muestra/1")
         .header(HttpHeaders.AUTHORIZATION, "Bearer " + validToken(jwtEncoder, ISSUER))
         .exchange()
-        .expectStatus().isOk();
+        .expectStatus().isNotFound();
   }
 
   @Test

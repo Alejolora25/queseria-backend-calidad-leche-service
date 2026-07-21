@@ -13,4 +13,12 @@ public interface MuestraRepository {
 
   Flux<MuestraLeche> findByProveedorAndRangoPaged(Long proveedorId, OffsetDateTime desde, OffsetDateTime hasta, int limit, int offset);
   Mono<Long> countByProveedorAndRango(Long proveedorId, OffsetDateTime desde, OffsetDateTime hasta);
+
+  Flux<ReferenciaMuestra> findReferenciasByProveedorAndRango(
+      Long proveedorId,
+      OffsetDateTime desde,
+      OffsetDateTime hasta
+  );
+
+  record ReferenciaMuestra(Long id, OffsetDateTime fechaMuestra) {}
 }

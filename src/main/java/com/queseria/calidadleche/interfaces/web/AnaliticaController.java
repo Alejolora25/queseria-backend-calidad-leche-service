@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
@@ -30,7 +32,11 @@ public class AnaliticaController {
 
   @GetMapping("/muestra/{sampleId}")
   public Mono<AnaliticaMuestraConsulta> porMuestra(@PathVariable Long sampleId) {
-    return buscarAnaliticaPorMuestraUseCase.execute(sampleId);
+    return buscarAnaliticaPorMuestraUseCase.execute(sampleId)
+        .switchIfEmpty(Mono.error(new ResponseStatusException(
+            HttpStatus.NOT_FOUND,
+            "La muestra no existe"
+        )));
   }
 
   @GetMapping("/proveedor/{proveedorId}/resumen")

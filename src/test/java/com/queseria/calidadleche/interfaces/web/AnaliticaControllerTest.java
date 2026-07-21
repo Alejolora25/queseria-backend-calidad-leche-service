@@ -81,6 +81,18 @@ class AnaliticaControllerTest {
   }
 
   @Test
+  void porMuestraDebeResponderNotFoundCuandoLaMuestraNoExiste() {
+    when(buscarAnaliticaPorMuestraUseCase.execute(99L)).thenReturn(Mono.empty());
+
+    webTestClient.get()
+        .uri("/api/v1/analiticas/muestra/99")
+        .exchange()
+        .expectStatus().isNotFound()
+        .expectBody()
+        .jsonPath("$.message").isEqualTo("La muestra no existe");
+  }
+
+  @Test
   void resumenProveedorDebeResponderKpis() {
     Instant desde = Instant.parse("2026-01-01T00:00:00Z");
     Instant hasta = Instant.parse("2026-01-31T23:59:59Z");

@@ -1,30 +1,32 @@
 package com.queseria.calidadleche.infrastructure.persistence.mongo.impl;
 
 import com.queseria.calidadleche.application.port.AnaliticaRepository;
+import com.queseria.calidadleche.application.service.AnaliticaCalculos;
 import com.queseria.calidadleche.domain.model.MuestraLeche;
 import com.queseria.calidadleche.domain.service.EvaluacionCalidadService;
 import com.queseria.calidadleche.infrastructure.persistence.mongo.doc.AnaliticaMuestraDoc;
-import com.queseria.calidadleche.infrastructure.persistence.mongo.repo.AnaliticaMuestraMongoRepository;
 import com.queseria.calidadleche.infrastructure.util.HashUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
-import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Repository
 @RequiredArgsConstructor
 public class AnaliticaRepositoryImpl implements AnaliticaRepository {
 
-  private final AnaliticaMuestraMongoRepository mongoRepo;
+  private final ReactiveMongoTemplate mongo;
 
   @Override
   public Mono<Void> saveAnalisis(
@@ -61,43 +63,23 @@ public class AnaliticaRepositoryImpl implements AnaliticaRepository {
 
     String hash = HashUtil.sha256CanonicalJson(base);
 
-    Set<String> flags = porParametro.values().stream()
-        .map(AnaliticaMuestraDoc.ResultadoParametroDoc::getEstado)
-        .filter(Objects::nonNull)
-        .filter(s -> !s.equalsIgnoreCase("INFO") && !s.equalsIgnoreCase("SIN_DATO"))
-        .collect(Collectors.toCollection(LinkedHashSet::new));
+    Update update = new Update()
+        .set("sampleId", muestra.id())
+        .set("proveedorId", muestra.proveedorId())
+        .set("timestamp", muestra.fechaMuestra().toInstant())
+        .set("calculadaEn", Instant.now())
+        .set("estadoGeneral", AnaliticaCalculos.estadoGeneral(evaluacion))
+        .set("base", base)
+        .set("evaluacion", evalDoc)
+        .set("hashBase", hash)
+        .set("flags", AnaliticaCalculos.flags(evaluacion))
+        .set("kpiCalidad", AnaliticaCalculos.kpi(evaluacion));
 
-    BigDecimal kpi = calcularKpiSimple(porParametro);
+    Query query = Query.query(Criteria.where("sampleId").is(muestra.id()));
+    FindAndModifyOptions options = FindAndModifyOptions.options().upsert(true).returnNew(true);
 
-    AnaliticaMuestraDoc doc = AnaliticaMuestraDoc.builder()
-        .sampleId(muestra.id())
-        .proveedorId(muestra.proveedorId())
-        .timestamp(Instant.now())
-        .base(base)
-        .evaluacion(evalDoc)
-        .hashBase(hash)
-        .flags(new ArrayList<>(flags))
-        .kpiCalidad(kpi)
-        .build();
-
-    return mongoRepo.save(doc).then();
-  }
-
-  private BigDecimal calcularKpiSimple(Map<String, AnaliticaMuestraDoc.ResultadoParametroDoc> porParametro) {
-    if (porParametro == null || porParametro.isEmpty()) return BigDecimal.ONE;
-
-    int total = 0;
-    int puntos = 0;
-    for (var v : porParametro.values()) {
-      if (v.getEstado() == null) continue;
-      String e = v.getEstado();
-      if (e.equals("INFO") || e.equals("SIN_DATO")) continue;
-      total++;
-      if (e.equals("ACEPTABLE")) puntos += 2;
-      else if (e.equals("ALERTA")) puntos += 1;
-      else if (e.equals("RECHAZAR")) puntos += 0;
-    }
-    if (total == 0) return BigDecimal.ONE;
-    return BigDecimal.valueOf(puntos).divide(BigDecimal.valueOf(total * 2L), 2, java.math.RoundingMode.HALF_UP);
+    return mongo.findAndModify(query, update, options, AnaliticaMuestraDoc.class)
+        .retryWhen(Retry.max(1).filter(DuplicateKeyException.class::isInstance))
+        .then();
   }
 }
